@@ -20,11 +20,6 @@ def get_product(product_id: int):
             return product
     raise HTTPException(status_code=404, detail="Product not found")
 
-@app.post("/products", response_model=Product)
-def create_product(product: Product):
-    products_db.append(product)
-    return product
-
 @app.put("/products/{product_id}/reduce", response_model=Product)
 def reduce_quantity(product_id: int, quantity: int):
     for product in products_db:
