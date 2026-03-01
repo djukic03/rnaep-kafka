@@ -20,9 +20,11 @@ def create_order(order: Order):
     if response.status_code != 200:
         raise HTTPException(status_code=404, detail="Product not found")
     orders_db.append(order)
+    
     requests.post(NOTIFICATIONS_URL, json={
         "order_id": order.id,
         "product_id": order.product_id,
         "message": f"Order {order.id} for product {order.product_id} has been placed."
     })
+    
     return order
