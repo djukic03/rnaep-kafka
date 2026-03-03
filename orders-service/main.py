@@ -1,16 +1,20 @@
 from fastapi import FastAPI, HTTPException
 from typing import List
 from aiokafka import AIOKafkaProducer
+from contextlib import asynccontextmanager
 from models import Order
 
-app = FastAPI(title="Orders Service")
 producer = AIOKafkaProducer(bootstrap_servers='kafka:9092')
 
-orders_db: List[Order] = []
-
-@app.on_event("startup")
-async def startup_event():
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     await producer.start()
+    yield
+    await producer.stop()
+
+app = FastAPI(title="Orders Service", lifespan=lifespan)
+
+orders_db: List[Order] = []
 
 @app.get("/orders")
 async def get_orders():
@@ -19,7 +23,8 @@ async def get_orders():
 @app.post("/orders", response_model=Order)
 async def create_order(order: Order):
     orders_db.append(order)
-
-    await producer.send_and_wait("order-created", order.model_dump_json().encode('utf-8'))
-
+    try:
+        await producer.send_and_wait("order-created", order.model_dump_json().encode('utf-8'))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     return order
