@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from typing import List
 from models import Notification
+from aiokafka import AIOKafkaConsumer
+import asyncio, json
 
 app = FastAPI(title="Notifications Service")
 
@@ -10,8 +12,21 @@ notifications_db: List[Notification] = []
 def get_notifications():
     return notifications_db
 
-@app.post("/notifications", response_model=Notification)
-def create_notification(notification: Notification):
-    notifications_db.append(notification)
-    print(f"Notification sent: Order {notification.order_id} for product {notification.product_id} has been placed.")
-    return notification
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(consume())
+    
+async def consume():
+    consumer = AIOKafkaConsumer(
+        "order-confirmed", 
+        bootstrap_servers='kafka:9092',
+        group_id="notifications-group"
+    )
+    await consumer.start()
+    try:
+        async for msg in consumer:
+            data = json.loads(msg.value.decode('utf-8'))
+            notification = Notification(order_id=data['order_id'], product_id=data['product_id'], message=f"Order {data['order_id']} for product {data['product_id']} has been placed.")
+            notifications_db.append(notification)
+    finally:
+        await consumer.stop()
