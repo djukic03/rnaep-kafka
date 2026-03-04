@@ -48,5 +48,5 @@ async def consume(consumer: AIOKafkaConsumer):
         pass
 
 @app.get("/products")
-async def get_products():
+def get_products():
     return products_db
