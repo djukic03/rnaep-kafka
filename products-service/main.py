@@ -44,9 +44,14 @@ async def consume(consumer: AIOKafkaConsumer):
                     "order_id": order['id'],
                     "product_id": product.id
                 }).encode('utf-8'))
+            else:
+                await producer.send_and_wait("order-cancelled", json.dumps({
+                    "order_id": order['id'],
+                    "product_id": order['product_id']
+                }).encode('utf-8'))
     except asyncio.CancelledError:
         pass
 
 @app.get("/products")
-async def get_products():
+def get_products():
     return products_db

@@ -8,7 +8,7 @@ import asyncio, json
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     consumer = AIOKafkaConsumer(
-        "order-confirmed", 
+        "order-confirmed", "order-cancelled",
         bootstrap_servers='kafka:9092',
         group_id="notifications-group",
         auto_offset_reset="earliest"
@@ -29,7 +29,14 @@ async def consume(consumer: AIOKafkaConsumer):
     try:
         async for msg in consumer:
             data = json.loads(msg.value.decode('utf-8'))
-            notification = Notification(order_id=data['order_id'], product_id=data['product_id'], message=f"Order {data['order_id']} for product {data['product_id']} has been placed.")
+            
+            if msg.topic == "order-confirmed":
+                message = f"Order {data['order_id']} for product {data['product_id']} has been confirmed."
+            
+            elif msg.topic == "order-cancelled":
+                message = f"Order {data['order_id']} for product {data['product_id']} has been cancelled."
+                
+            notification = Notification(order_id=data['order_id'], product_id=data['product_id'], message=message)
             notifications_db.append(notification)
     except asyncio.CancelledError:
         pass
